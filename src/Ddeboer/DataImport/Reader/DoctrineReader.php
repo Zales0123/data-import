@@ -21,16 +21,22 @@ class DoctrineReader implements CountableReaderInterface
     protected $iterableResult;
 
     /**
+     * @var array
+     */
+    protected $fields;
+    
+    /**
      * Constuctor
      *
      * @param ObjectManager $objectManager Doctrine object manager
      * @param string        $objectName    Doctrine object name, e.g.
      *                                     YourBundle:YourEntity
      */
-    public function __construct(ObjectManager $objectManager, $objectName)
+    public function __construct(ObjectManager $objectManager, $objectName, array $fields = array())
     {
         $this->objectManager = $objectManager;
         $this->objectName = $objectName;
+        $this->fields = $fields;
     }
 
     /**
@@ -38,6 +44,9 @@ class DoctrineReader implements CountableReaderInterface
      */
     public function getFields()
     {
+        if ($this->fields === array()) {
+            return $this->fields;
+        }
         return $this->objectManager->getClassMetadata($this->objectName)
                  ->getFieldNames();
     }
@@ -80,9 +89,17 @@ class DoctrineReader implements CountableReaderInterface
     public function rewind()
     {
         if (!$this->iterableResult) {
-            $query = $this->objectManager->createQuery(
-                sprintf('select o from %s o', $this->objectName)
-            );
+            if ($this->fields == array()) {
+                $query = $this->objectManager->createQuery(
+                    sprintf('select o from %s o', $this->objectName)
+                );
+            } else {
+                $fields = $this->fields;
+                array_walk($fields, function (&$value) { $value = 'o.'.$value; });
+                $query = $this->objectManager->createQuery(
+                    sprintf('select %s from %s o', join(', ', $fields), $this->objectName)
+                );
+            }
             $this->iterableResult = $query->iterate(array(), Query::HYDRATE_ARRAY);
         }
 
